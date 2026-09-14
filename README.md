@@ -1,5 +1,7 @@
 ### BWH Hive
 
+[![Built at BWH](.github/built-at-bwh.svg)](https://bwh.tech)
+
 Modern Project Management Software
 
 ### Installation
