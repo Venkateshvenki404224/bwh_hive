@@ -37,13 +37,13 @@
    "options": "\ngray\nblue\ngreen\namber\nred\nviolet"
   },
   {
-   "description": "Generated DiceBear avatar, stored as a data:image/svg+xml URI. Set means it is shown instead of the icon. Rendered only as an <img> source, never as markup.",
+   "description": "Generated DiceBear avatar (data:image/svg+xml URI) or uploaded image (data:image/png URI). Set means it is shown instead of the icon. Rendered only as an <img> source, never as markup.",
    "fieldname": "avatar",
    "fieldtype": "Long Text",
    "label": "Avatar"
   },
   {
-   "description": "DiceBear style id the avatar was generated from (e.g. notionists).",
+   "description": "DiceBear style id the avatar was generated from (e.g. notionists), or upload for an uploaded image.",
    "fieldname": "avatar_style",
    "fieldtype": "Data",
    "label": "Avatar Style"

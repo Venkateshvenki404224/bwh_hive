@@ -75,14 +75,33 @@
 							size="3xl"
 							hide-tooltip
 						/>
-						<Button
-							class="flex-1"
-							icon-left="lucide-shuffle"
-							label="Shuffle"
-							:loading="rendering"
-							data-testid="project-avatar-shuffle"
-							@click="shuffle"
-						/>
+						<div class="flex flex-1 flex-col gap-1.5">
+							<Button
+								icon-left="lucide-shuffle"
+								label="Shuffle"
+								:loading="rendering"
+								data-testid="project-avatar-shuffle"
+								@click="shuffle"
+							/>
+							<!-- frappe-ui's FileUploader always posts to
+							     `upload_file`; an avatar never leaves the
+							     browser as a file, so a plain input does. -->
+							<Button
+								icon-left="lucide-upload"
+								label="Upload"
+								:loading="uploading"
+								data-testid="project-avatar-upload"
+								@click="fileInput?.click()"
+							/>
+							<input
+								ref="fileInput"
+								type="file"
+								class="hidden"
+								:accept="AVATAR_UPLOAD_ACCEPT"
+								data-testid="project-avatar-file"
+								@change="upload"
+							/>
+						</div>
 					</div>
 
 					<Select
@@ -114,9 +133,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { Button, Popover, Select, TabButtons } from 'frappe-ui'
+import { computed, ref, useTemplateRef, watch } from 'vue'
+import { Button, Popover, Select, TabButtons, toast } from 'frappe-ui'
 import IdentityAvatar from '@/components/common/IdentityAvatar.vue'
+import { AVATAR_UPLOAD_ACCEPT, avatarFromFile, UPLOADED_AVATAR_STYLE } from '@/lib/avatarUpload'
 import {
 	avatarStyleMeta,
 	DEFAULT_PROJECT_AVATAR_STYLE,
@@ -130,7 +150,8 @@ import { PROJECT_COLORS, PROJECT_ICONS, projectIconClass, type ProjectColor } fr
 
 /**
  * The whole of a record's visual identity: a curated lucide grid with colour
- * swatches, or a DiceBear avatar with a shuffle button. Curated on purpose on
+ * swatches, or a DiceBear avatar with a shuffle button — or an uploaded logo in
+ * the avatar's place. Curated on purpose on
  * both sides — a search over all of lucide is a worse choice than twenty-eight
  * names that all read as a project, and the same goes for DiceBear's 61 styles.
  *
@@ -173,10 +194,16 @@ const mode = ref<string | number>(avatar.value ? 'avatar' : 'icon')
 // `||`, not `??`: a row can carry an SVG with an empty style or seed — written
 // by hand or by a REST client — and an empty style id loads nothing, so a
 // shuffle would fail on a record that looks fine on screen.
-const styleId = ref<string>(avatar.value?.style || DEFAULT_PROJECT_AVATAR_STYLE)
+// An uploaded logo stores `upload` as its style, which is no DiceBear style;
+// the Style select starts on the default so a shuffle from there still works.
+const styleId = ref<string>(
+	avatarStyleMeta(avatar.value?.style) ? avatar.value!.style : DEFAULT_PROJECT_AVATAR_STYLE,
+)
 const seed = ref<string>(avatar.value?.seed || randomAvatarSeed())
 const chosen = ref<Record<string, string>>({ ...(avatar.value?.options ?? {}) })
 const rendering = ref(false)
+const uploading = ref(false)
+const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 
 /** Variant names per component, filled once the style definition has loaded. */
 const variants = ref<Record<string, string[]>>({})
@@ -220,6 +247,31 @@ function shuffle() {
 	// Hand-picked variants survive a shuffle on purpose: pinning the hair and
 	// then re-rolling everything else is the reason to have both controls.
 	void render()
+}
+
+async function upload(event: Event) {
+	const input = event.target as HTMLInputElement
+	const file = input.files?.[0]
+	// Cleared so picking the same file again still fires `change`.
+	input.value = ''
+	if (!file) return
+
+	// An upload supersedes any roll still in flight.
+	renderToken++
+	rendering.value = false
+	uploading.value = true
+	try {
+		avatar.value = {
+			svg: await avatarFromFile(file),
+			style: UPLOADED_AVATAR_STYLE,
+			seed: '',
+			options: {},
+		}
+	} catch (error) {
+		toast.error(error instanceof Error ? error.message : 'Could not read the image')
+	} finally {
+		uploading.value = false
+	}
 }
 
 function pickVariant(aspect: string, variant: string) {

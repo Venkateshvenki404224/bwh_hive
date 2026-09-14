@@ -96,11 +96,12 @@ export function projectIconClass(icon?: string | null): string {
  * Anything else resolves to `''`, and `ProjectAvatar` falls back to the icon.
  *
  * The check is deliberately narrow. `data:image/svg+xml` is what
- * `renderProjectAvatar` writes; a `javascript:` or `data:text/html` value —
- * inert in `src` on any current browser, but not something to rely on — never
- * gets that far.
+ * `renderProjectAvatar` writes and `data:image/png` is what an upload writes
+ * (`avatarFromFile`); JPEG and WebP are let through as the other raster types.
+ * A `javascript:` or `data:text/html` value — inert in `src` on any current
+ * browser, but not something to rely on — never gets that far.
  */
-const AVATAR_DATA_URI = /^data:image\/svg\+xml[;,]/i
+const AVATAR_DATA_URI = /^data:image\/(svg\+xml|png|jpeg|webp)[;,]/i
 
 export function projectAvatarSrc(avatar?: string | null): string {
 	const value = (avatar ?? '').trim()

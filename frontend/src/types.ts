@@ -61,7 +61,8 @@ export interface HiveProject {
 	/** One of `PROJECT_COLORS`; empty derives a colour from `name`. */
 	color: ProjectColor | ''
 	/**
-	 * Generated DiceBear avatar as a `data:image/svg+xml` URI. Set means the
+	 * Generated DiceBear avatar (`data:image/svg+xml`) or uploaded logo
+	 * (`data:image/png`) as a data URI. Set means the
 	 * project shows this instead of `icon`. Untrusted: only `projectAvatarSrc`
 	 * may hand it to the DOM, and only to an `<img src>`.
 	 */

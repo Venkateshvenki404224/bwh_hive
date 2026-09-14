@@ -43,7 +43,7 @@ const props = withDefaults(
 		/** One of `PROJECT_COLORS`. Empty derives a colour from `name`. */
 		color?: string | null
 		/**
-		 * The stored `avatar` field: a DiceBear SVG as a `data:` URI. Set means
+		 * The stored `avatar` field: a DiceBear SVG or uploaded logo as a `data:` URI. Set means
 		 * an avatar was chosen over an icon, and it wins. Untrusted — it goes
 		 * through `projectAvatarSrc`, never to the DOM as markup.
 		 */

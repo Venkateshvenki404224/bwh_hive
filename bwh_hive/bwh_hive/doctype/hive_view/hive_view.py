@@ -7,7 +7,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-AVATAR_DATA_URI = re.compile(r"^data:image/svg\+xml[;,]", re.IGNORECASE)
+AVATAR_DATA_URI = re.compile(r"^data:image/(svg\+xml|png|jpeg|webp)[;,]", re.IGNORECASE)
 
 
 class HiveView(Document):
@@ -30,6 +30,6 @@ class HiveView(Document):
 		self.avatar = self.avatar.strip()
 		if not AVATAR_DATA_URI.match(self.avatar):
 			frappe.throw(
-				_("Avatar must be an SVG data URI (data:image/svg+xml,…)"),
+				_("Avatar must be an SVG, PNG, JPEG or WebP data URI"),
 				title=_("Invalid Avatar"),
 			)
