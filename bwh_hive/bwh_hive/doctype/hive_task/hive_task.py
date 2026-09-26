@@ -115,7 +115,9 @@ class HiveTask(Document):
 		"""When a recurring task is marked Done, spawn the next instance.
 
 		Skips if the frequency is unset, the status didn't just change to Done,
-		or the computed next due date is past `recurrence_end_date`.
+		an open instance of the series already exists, or the computed next due
+		date is past `recurrence_end_date`. An overdue series rolls forward to
+		the first due date on or after today.
 		"""
 		if not self.recurrence_frequency or self.status != "Done":
 			return
@@ -124,9 +126,18 @@ class HiveTask(Document):
 		if self.flags.get("recurrence_spawned"):
 			return
 
+		parent_name = self.recurring_parent or self.name
+		if frappe.db.exists(
+			"Hive Task",
+			{"recurring_parent": parent_name, "status": ("!=", "Done"), "is_archived": 0},
+		):
+			return
+
 		next_due = _add_period(self.due_date or today(), self.recurrence_frequency)
 		if not next_due:
 			return
+		while getdate(next_due) < getdate(today()):
+			next_due = _add_period(next_due, self.recurrence_frequency)
 		if self.recurrence_end_date and getdate(next_due) > getdate(self.recurrence_end_date):
 			return
 
@@ -135,7 +146,6 @@ class HiveTask(Document):
 			interval_days = (getdate(self.due_date) - getdate(self.start_date)).days
 			new_start = add_days(next_due, -interval_days)
 
-		parent_name = self.recurring_parent or self.name
 		new_task = frappe.new_doc("Hive Task")
 		new_task.update(
 			{
