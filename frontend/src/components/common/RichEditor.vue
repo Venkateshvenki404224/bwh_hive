@@ -18,7 +18,12 @@
 					v-if="editable"
 					class="flex items-center justify-between gap-2 border-t border-outline-gray-2 px-2 py-1.5"
 				>
-					<EditorFixedMenu :editor="editor" :items="toolbar" button-size="xs" />
+					<EditorFixedMenu
+						:editor="editor"
+						:items="toolbar"
+						button-size="xs"
+						class="min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+					/>
 					<slot name="actions" :editor="editor" :is-empty="isEmpty" />
 				</div>
 			</div>
