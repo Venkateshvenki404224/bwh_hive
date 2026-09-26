@@ -5,6 +5,7 @@ import json
 
 import frappe
 from frappe.tests import IntegrationTestCase
+from frappe.utils import add_days, getdate, today
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -192,3 +193,46 @@ class IntegrationTestHiveTask(IntegrationTestCase):
 		visible_names = {t.name for t in visible}
 		self.assertNotIn(self.task.name, visible_names)
 		self.assertIn(task2.name, visible_names)
+
+
+class TestHiveTaskRecurrence(IntegrationTestCase):
+	def setUp(self):
+		self.project = _make_project("Recurrence Test Project")
+
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def _open_instances(self, parent):
+		return frappe.get_all(
+			"Hive Task",
+			filters={"recurring_parent": parent.name, "status": ("!=", "Done")},
+			pluck="due_date",
+		)
+
+	def test_overdue_task_spawns_next_instance_from_today(self):
+		task = _make_task(
+			self.project,
+			"Daily Standup Notes",
+			recurrence_frequency="Daily",
+			due_date=add_days(today(), -3),
+		)
+		task.status = "Done"
+		task.save()
+
+		self.assertEqual(self._open_instances(task), [getdate(today())])
+
+	def test_reopening_and_completing_does_not_duplicate_next_instance(self):
+		task = _make_task(
+			self.project,
+			"Weekly Report",
+			recurrence_frequency="Weekly",
+			due_date=today(),
+		)
+		task.status = "Done"
+		task.save()
+		task.status = "To Do"
+		task.save()
+		task.status = "Done"
+		task.save()
+
+		self.assertEqual(self._open_instances(task), [getdate(add_days(today(), 7))])
