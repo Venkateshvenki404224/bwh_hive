@@ -160,6 +160,17 @@
 						<template #prefix>
 							<span class="lucide-link size-4 text-ink-gray-5" aria-hidden="true" />
 						</template>
+						<template v-if="form.pr_link" #suffix>
+							<a
+								:href="form.pr_link"
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="Open PR"
+								class="flex text-ink-gray-5 hover:text-ink-gray-8"
+							>
+								<span class="lucide-external-link size-4" aria-hidden="true" />
+							</a>
+						</template>
 					</FormControl>
 
 					<div v-if="showGithubIssue" class="space-y-1.5">
