@@ -19,10 +19,12 @@
 					class="flex items-center justify-between gap-2 border-t border-outline-gray-2 px-2 py-1.5"
 				>
 					<EditorFixedMenu
+						ref="toolbarMenu"
 						:editor="editor"
 						:items="toolbar"
 						button-size="xs"
 						class="min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+						:style="{ maskImage: toolbarMask, WebkitMaskImage: toolbarMask }"
 					/>
 					<slot name="actions" :editor="editor" :is-empty="isEmpty" />
 				</div>
@@ -32,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, type ComponentPublicInstance } from 'vue'
 import { upload } from 'frappe-ui'
 import {
 	CommentKit,
@@ -46,6 +48,7 @@ import {
 	type RichTextKitOptions,
 	type UploadedFile as EditorUploadedFile,
 } from 'frappe-ui/editor'
+import { useScrollFade } from '@/composables/useScrollFade'
 
 /** Matches frappe-ui's `MentionSuggestionItem`: free-form beyond id + label. */
 export interface MentionItem {
@@ -87,6 +90,9 @@ defineSlots<{
 }>()
 
 const toolbar = computed(() => (props.kit === 'rich' ? articleToolbar : commentToolbar))
+
+const toolbarMenu = ref<ComponentPublicInstance | null>(null)
+const { mask: toolbarMask } = useScrollFade(computed(() => toolbarMenu.value?.$el))
 
 const extensions = computed(() => {
 	// A getter, so the suggestion list follows `mentions` without rebuilding the
