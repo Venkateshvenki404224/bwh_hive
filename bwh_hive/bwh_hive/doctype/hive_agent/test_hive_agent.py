@@ -46,10 +46,18 @@ class TestHiveAgent(IntegrationTestCase):
 		self.assertEqual(agent.model, VALID_MODEL)
 
 	def test_token_limit_bounds(self):
+		"""Below the floor a Claude 5-era model can return no text at all."""
 		with self.assertRaises(frappe.ValidationError):
 			self._agent(max_tokens=0).insert()
 		with self.assertRaises(frappe.ValidationError):
+			self._agent(max_tokens=300).insert()
+		with self.assertRaises(frappe.ValidationError):
 			self._agent(max_tokens=10_000_000).insert()
+
+	def test_token_limit_at_floor_is_allowed(self):
+		agent = self._agent(max_tokens=1024)
+		agent.insert()
+		self.assertEqual(agent.max_tokens, 1024)
 
 	def test_temperature_bounds(self):
 		with self.assertRaises(frappe.ValidationError):
