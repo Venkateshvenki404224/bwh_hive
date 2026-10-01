@@ -7,6 +7,12 @@ from frappe.model.document import Document
 
 MAX_OUTPUT_TOKENS = 64000
 
+# Claude 5-era models spend output budget on internal reasoning before emitting
+# text. Verified against the live account: a 1172-char task description with
+# maxTokens=300 returns 300 output tokens and an empty response. A floor well
+# above that stops an agent being configured into guaranteed empty runs.
+MIN_OUTPUT_TOKENS = 1024
+
 # Anything that is not a cross-region inference profile id fails at invoke
 # time rather than at save time, which is a much worse place to find out.
 PROFILE_PREFIXES = ("us", "eu", "apac", "au", "jp", "in", "global")
@@ -58,9 +64,12 @@ class HiveAgent(Document):
 			)
 
 	def _validate_limits(self):
-		if self.max_tokens is not None and not 1 <= self.max_tokens <= MAX_OUTPUT_TOKENS:
+		if self.max_tokens is not None and not MIN_OUTPUT_TOKENS <= self.max_tokens <= MAX_OUTPUT_TOKENS:
 			frappe.throw(
-				_("Max output tokens must be between 1 and {0}.").format(MAX_OUTPUT_TOKENS),
+				_(
+					"Max output tokens must be between {0} and {1}. Below {0} a Claude 5-era "
+					"model can spend the whole budget reasoning and return no text at all."
+				).format(MIN_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS),
 				title=_("Invalid Token Limit"),
 			)
 

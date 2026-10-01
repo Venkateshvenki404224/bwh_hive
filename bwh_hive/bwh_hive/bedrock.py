@@ -32,6 +32,12 @@ DEFAULT_REGION = "us-east-1"
 MODEL_CACHE_KEY = "bwh_hive:bedrock_models"
 MODEL_CACHE_TTL = 60 * 60 * 6
 
+# Claude 5-era models reject `temperature` outright -- Converse returns
+# ValidationException: "`temperature` is deprecated for this model" -- while
+# 4.x still accepts it. Verified against the live account 2026-10-01. Sending
+# it unconditionally would fail every run on the current default model.
+TEMPERATURE_DEPRECATED = ("-5", "-5-5", "-5-1", "fable-5")
+
 
 def get_credentials() -> dict:
 	"""Return stored Bedrock credentials, or throw if they are not set."""
@@ -201,6 +207,55 @@ def _scope_of(profile_id: str) -> str:
 	"""The routing prefix: `us`, `eu`, `global`, and so on."""
 	prefix = profile_id.split(".")[0]
 	return prefix if prefix in ("us", "eu", "apac", "au", "jp", "in", "global") else "other"
+
+
+def supports_temperature(model: str) -> bool:
+	"""Whether this model still accepts an explicit temperature."""
+	base = model.rsplit(":", 1)[0]
+	return not any(base.endswith(suffix) or suffix in base for suffix in TEMPERATURE_DEPRECATED)
+
+
+def converse(
+	model: str,
+	prompt: str,
+	system_prompt: str | None = None,
+	max_tokens: int = 2048,
+	temperature: float | None = None,
+) -> dict:
+	"""One Bedrock Converse call, returning the text and real token usage.
+
+	Raises on failure rather than returning a sentinel: the caller records the
+	failure against a run row, and a half-successful return would be recorded
+	as a successful one.
+	"""
+	config: dict = {"maxTokens": max_tokens}
+	if temperature is not None and supports_temperature(model):
+		config["temperature"] = temperature
+
+	kwargs = {
+		"modelId": model,
+		"messages": [{"role": "user", "content": [{"text": prompt}]}],
+		"inferenceConfig": config,
+	}
+	if system_prompt:
+		kwargs["system"] = [{"text": system_prompt}]
+
+	response = get_client("bedrock-runtime").converse(**kwargs)
+	usage = response.get("usage") or {}
+
+	return {
+		"text": _first_text(response),
+		"stop_reason": response.get("stopReason"),
+		"input_tokens": usage.get("inputTokens") or 0,
+		"output_tokens": usage.get("outputTokens") or 0,
+		"total_tokens": usage.get("totalTokens") or 0,
+		"latency_ms": (response.get("metrics") or {}).get("latencyMs") or 0,
+	}
+
+
+def _first_text(response: dict) -> str:
+	blocks = ((response.get("output") or {}).get("message") or {}).get("content") or []
+	return "\n".join(block["text"] for block in blocks if block.get("text")).strip()
 
 
 def _record_result(settings, connected: bool, error: str | None) -> None:

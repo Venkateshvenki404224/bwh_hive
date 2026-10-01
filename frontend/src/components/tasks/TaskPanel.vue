@@ -220,6 +220,8 @@
 						<TaskAttachments :task-name="task.doc.name" :read-only="!canEdit" />
 					</div>
 
+					<TaskAgentRuns :task-name="task.doc.name" :read-only="!canEdit" />
+
 					<!-- Clients comment too; only their own comment can be deleted. -->
 					<TaskComments :task-name="task.doc.name" :members="members.data ?? []" />
 				</div>
@@ -279,6 +281,7 @@ import {
 import EmptyState from '@/components/common/EmptyState.vue'
 import LinkPicker from '@/components/common/LinkPicker.vue'
 import RichEditor from '@/components/common/RichEditor.vue'
+import TaskAgentRuns from '@/components/tasks/TaskAgentRuns.vue'
 import TaskAttachments from '@/components/tasks/TaskAttachments.vue'
 import TaskComments from '@/components/tasks/TaskComments.vue'
 import { useArchiveWithUndo } from '@/composables/useArchiveWithUndo'
