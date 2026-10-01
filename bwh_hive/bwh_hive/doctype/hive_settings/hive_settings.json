@@ -16,7 +16,14 @@
   "github_webhook_secret",
   "github_access_token",
   "github_username",
-  "github_authorized_at"
+  "github_authorized_at",
+  "bedrock_section",
+  "aws_access_key_id",
+  "aws_secret_access_key",
+  "aws_region",
+  "bedrock_connected",
+  "bedrock_verified_at",
+  "bedrock_last_error"
  ],
  "fields": [
   {
@@ -98,6 +105,48 @@
    "fieldname": "github_webhook_secret",
    "fieldtype": "Password",
    "label": "GitHub Webhook Secret"
+  },
+  {
+   "fieldname": "bedrock_section",
+   "fieldtype": "Section Break",
+   "label": "Amazon Bedrock"
+  },
+  {
+   "description": "Use a dedicated IAM user scoped to Bedrock only. Never a root or broadly-privileged key: this database also serves other sites on the same bench.",
+   "fieldname": "aws_access_key_id",
+   "fieldtype": "Data",
+   "label": "AWS Access Key ID"
+  },
+  {
+   "fieldname": "aws_secret_access_key",
+   "fieldtype": "Password",
+   "label": "AWS Secret Access Key"
+  },
+  {
+   "default": "us-east-1",
+   "fieldname": "aws_region",
+   "fieldtype": "Data",
+   "label": "AWS Region"
+  },
+  {
+   "default": "0",
+   "fieldname": "bedrock_connected",
+   "fieldtype": "Check",
+   "label": "Bedrock Connected",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bedrock_verified_at",
+   "fieldtype": "Datetime",
+   "label": "Bedrock Verified At",
+   "read_only": 1
+  },
+  {
+   "description": "The real error from the last failed connection test, kept so a failure can be diagnosed instead of guessed at.",
+   "fieldname": "bedrock_last_error",
+   "fieldtype": "Small Text",
+   "label": "Bedrock Last Error",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
