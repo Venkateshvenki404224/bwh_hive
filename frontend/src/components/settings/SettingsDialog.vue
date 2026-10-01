@@ -36,6 +36,7 @@ import {
 } from 'frappe-ui'
 import AppearancePanel from '@/components/settings/AppearancePanel.vue'
 import ClientsPanel from '@/components/settings/ClientsPanel.vue'
+import CronJobsPanel from '@/components/settings/CronJobsPanel.vue'
 import GeneralPanel from '@/components/settings/GeneralPanel.vue'
 import GitHubPanel from '@/components/settings/GitHubPanel.vue'
 import MembersPanel from '@/components/settings/MembersPanel.vue'
@@ -86,6 +87,13 @@ const PANELS: PanelDef[] = [
 		label: 'Clients',
 		icon: 'lucide-building-2',
 		component: markRaw(ClientsPanel),
+		teamOnly: true,
+	},
+	{
+		value: 'cron-jobs',
+		label: 'Cron Jobs',
+		icon: 'lucide-timer',
+		component: markRaw(CronJobsPanel),
 		teamOnly: true,
 	},
 	{

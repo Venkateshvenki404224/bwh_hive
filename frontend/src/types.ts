@@ -133,6 +133,21 @@ export interface HiveMember {
 	is_active: Bool
 }
 
+export interface HiveCronJob {
+	name: string
+	job_name: string
+	job_id: string | null
+	project: string | null
+	schedule: string | null
+	deliver_to: string | null
+	model: string | null
+	enabled: Bool
+	last_status: '' | 'ok' | 'error' | 'never run'
+	last_run_at: string | null
+	next_run_at: string | null
+	notes: string | null
+}
+
 export interface HiveClient {
 	name: string
 	company_name: string
