@@ -24,7 +24,7 @@ class HiveAgentRun(Document):
 		output: DF.LongText | None
 		output_tokens: DF.Int
 		started_at: DF.Datetime | None
-		status: DF.Literal["Queued", "Running", "Done", "Failed"]
+		status: DF.Literal["Queued", "Running", "Done", "Failed", "Blocked"]
 		stop_reason: DF.Data | None
 		task: DF.Link
 		total_tokens: DF.Int

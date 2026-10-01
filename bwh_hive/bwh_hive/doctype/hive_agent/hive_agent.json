@@ -18,7 +18,13 @@
   "temperature",
   "permissions_section",
   "can_write",
-  "project"
+  "project",
+  "schedule_section",
+  "is_scheduled",
+  "schedule_interval",
+  "task_status_filter",
+  "guards_section",
+  "max_runs_per_hour"
  ],
  "fields": [
   {
@@ -99,6 +105,49 @@
    "in_standard_filter": 1,
    "label": "Limit to Project",
    "options": "Hive Project"
+  },
+  {
+   "fieldname": "schedule_section",
+   "fieldtype": "Section Break",
+   "label": "Schedule"
+  },
+  {
+   "default": "0",
+   "description": "Off by default. On, this agent picks up one eligible task per tick.",
+   "fieldname": "is_scheduled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Run on a schedule"
+  },
+  {
+   "default": "Hourly",
+   "depends_on": "is_scheduled",
+   "description": "Throughput comes from frequency, not batch size: one task per tick, always.",
+   "fieldname": "schedule_interval",
+   "fieldtype": "Select",
+   "label": "How often",
+   "options": "Hourly\nDaily"
+  },
+  {
+   "default": "To Do",
+   "depends_on": "is_scheduled",
+   "fieldname": "task_status_filter",
+   "fieldtype": "Select",
+   "label": "Pick up tasks with status",
+   "options": "To Do\nIn Progress"
+  },
+  {
+   "fieldname": "guards_section",
+   "fieldtype": "Section Break",
+   "label": "Spend guards"
+  },
+  {
+   "default": "10",
+   "description": "Counted from real run rows. A runaway loop is the realistic failure mode here.",
+   "fieldname": "max_runs_per_hour",
+   "fieldtype": "Int",
+   "label": "Max Runs Per Hour"
   }
  ],
  "grid_page_length": 50,
