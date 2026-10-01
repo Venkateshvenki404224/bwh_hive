@@ -92,7 +92,7 @@
 			<section v-if="connected" class="space-y-1">
 				<h3 class="text-base font-semibold text-ink-gray-8">Connection</h3>
 				<p class="text-sm text-ink-gray-6">
-					Verified {{ status.data?.verified_at }} in {{ status.data?.region }}.
+					Verified {{ verifiedAt }} in {{ status.data?.region }}.
 				</p>
 			</section>
 		</div>
@@ -114,6 +114,7 @@ import {
 	useDoc,
 } from 'frappe-ui'
 import type { DropdownOptions } from 'frappe-ui'
+import { formatDate, fromNow } from '@/lib/dates'
 
 interface BedrockStatus {
 	configured: boolean
@@ -155,6 +156,14 @@ const testing = ref(false)
 const configured = computed(() => Boolean(status.data?.configured))
 const connected = computed(() => Boolean(status.data?.connected))
 const requiredActions = computed(() => status.data?.required_actions ?? [])
+
+// The raw value is a Frappe datetime with microseconds; show it the way the
+// rest of the app shows timestamps, with a relative hint alongside.
+const verifiedAt = computed(() => {
+	const value = status.data?.verified_at
+	if (!value) return ''
+	return `${formatDate(value, 'D MMM YYYY, HH:mm')} (${fromNow(value)})`
+})
 
 // A first-time save needs both halves; once stored, either can be updated alone.
 const canSave = computed(() => {
