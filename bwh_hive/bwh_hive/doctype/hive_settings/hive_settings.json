@@ -23,7 +23,9 @@
   "aws_region",
   "bedrock_connected",
   "bedrock_verified_at",
-  "bedrock_last_error"
+  "bedrock_last_error",
+  "agent_budget_section",
+  "max_agent_tokens_per_day"
  ],
  "fields": [
   {
@@ -147,6 +149,18 @@
    "fieldtype": "Small Text",
    "label": "Bedrock Last Error",
    "read_only": 1
+  },
+  {
+   "fieldname": "agent_budget_section",
+   "fieldtype": "Section Break",
+   "label": "AI Agent Spend Guards"
+  },
+  {
+   "default": "200000",
+   "description": "Across every agent. Scheduled runs stop once this is reached; a manual run is never blocked by it. Set 0 to disable the ceiling.",
+   "fieldname": "max_agent_tokens_per_day",
+   "fieldtype": "Int",
+   "label": "Max Agent Tokens Per Day"
   }
  ],
  "grid_page_length": 50,

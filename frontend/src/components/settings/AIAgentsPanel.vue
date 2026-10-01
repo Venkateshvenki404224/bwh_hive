@@ -196,6 +196,12 @@
 									theme="amber"
 									variant="subtle"
 								/>
+								<Badge
+									v-if="agent.is_scheduled"
+									:label="agent.schedule_interval"
+									theme="blue"
+									variant="subtle"
+								/>
 							</div>
 							<p class="truncate font-mono text-xs text-ink-gray-5">
 								{{ agent.model }}
@@ -220,6 +226,32 @@
 				<p v-else class="text-sm text-ink-gray-5">
 					No agents yet. Create one to run a task with it.
 				</p>
+			</section>
+
+			<section v-if="connected" class="space-y-3">
+				<div>
+					<h3 class="text-base font-semibold text-ink-gray-8">Daily spend ceiling</h3>
+					<p class="text-sm text-ink-gray-5">
+						Across every agent. Scheduled runs stop once this is reached; a manual run
+						is never blocked by it.
+					</p>
+				</div>
+				<div class="flex items-end gap-2">
+					<FormControl
+						v-model.number="tokenCeiling"
+						class="w-48"
+						label="Max tokens per day"
+						type="number"
+						min="0"
+						description="0 disables the ceiling"
+					/>
+					<Button
+						label="Save ceiling"
+						:loading="savingCeiling"
+						:disabled="tokenCeiling === settings.doc?.max_agent_tokens_per_day"
+						@click="saveCeiling"
+					/>
+				</div>
 			</section>
 
 			<section v-if="status.data?.last_error" class="space-y-2">
@@ -297,6 +329,45 @@
 					:options="projectSelectOptions"
 					description="Leave blank to let it work tasks in any project."
 				/>
+
+				<div class="flex flex-col gap-3 rounded-4 border border-outline-gray-1 p-3">
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0">
+							<p class="text-sm font-medium text-ink-gray-8">Run on a schedule</p>
+							<p class="text-sm text-ink-gray-5">
+								Picks up one eligible task per tick — never a batch.
+							</p>
+						</div>
+						<Switch v-model="draft.is_scheduled" />
+					</div>
+					<div v-if="draft.is_scheduled" class="grid gap-3 sm:grid-cols-3">
+						<FormControl
+							v-model="draft.schedule_interval"
+							label="How often"
+							type="select"
+							:options="[
+								{ label: 'Hourly', value: 'Hourly' },
+								{ label: 'Daily', value: 'Daily' },
+							]"
+						/>
+						<FormControl
+							v-model="draft.task_status_filter"
+							label="Task status"
+							type="select"
+							:options="[
+								{ label: 'To Do', value: 'To Do' },
+								{ label: 'In Progress', value: 'In Progress' },
+							]"
+						/>
+						<FormControl
+							v-model.number="draft.max_runs_per_hour"
+							label="Max runs / hour"
+							type="number"
+							min="0"
+							description="0 disables"
+						/>
+					</div>
+				</div>
 
 				<div class="flex flex-col gap-3 rounded-4 border border-outline-gray-1 p-3">
 					<div class="flex items-start justify-between gap-3">
@@ -396,6 +467,10 @@ interface HiveAgentRow {
 	can_write: 0 | 1
 	is_active: 0 | 1
 	project: string | null
+	is_scheduled: 0 | 1
+	schedule_interval: string
+	task_status_filter: string
+	max_runs_per_hour: number
 }
 
 const status = useCall<BedrockStatus>({
@@ -416,7 +491,7 @@ const disconnectCall = useCall<{ disconnected: boolean }>({
 	immediate: false,
 })
 
-const settings = useDoc<{ name: string }>({
+const settings = useDoc<{ name: string; max_agent_tokens_per_day: number }>({
 	doctype: 'Hive Settings',
 	name: 'Hive Settings',
 })
@@ -431,6 +506,8 @@ const form = reactive({ access_key_id: '', secret_access_key: '', region: '' })
 const saving = ref(false)
 const testing = ref(false)
 const refreshing = ref(false)
+const savingCeiling = ref(false)
+const tokenCeiling = ref(0)
 const providerFilter = ref('')
 const scopeFilter = ref('')
 
@@ -447,6 +524,10 @@ const agents = useList<HiveAgentRow>({
 		'can_write',
 		'is_active',
 		'project',
+		'is_scheduled',
+		'schedule_interval',
+		'task_status_filter',
+		'max_runs_per_hour',
 	],
 	orderBy: 'agent_name asc',
 	limit: 100,
@@ -477,6 +558,10 @@ const BLANK_AGENT = {
 	can_write: false,
 	is_active: true,
 	project: '',
+	is_scheduled: false,
+	schedule_interval: 'Hourly',
+	task_status_filter: 'To Do',
+	max_runs_per_hour: 10,
 }
 
 const draft = reactive({ ...BLANK_AGENT })
@@ -520,6 +605,33 @@ const filteredModels = computed(() =>
 // Listing models is a live AWS call, so it waits until the credentials are
 // known good rather than firing on every panel open.
 watch(connected, (isConnected) => isConnected && models.submit({}), { immediate: true })
+
+// Mirrors the stored value into the input once the doc arrives, so the Save
+// button can compare against what is actually persisted.
+watch(
+	() => settings.doc?.max_agent_tokens_per_day,
+	(value) => {
+		if (value !== undefined) tokenCeiling.value = value
+	},
+	{ immediate: true },
+)
+
+async function saveCeiling() {
+	if (savingCeiling.value) return
+	savingCeiling.value = true
+	try {
+		await settings.setValue.submit({ max_agent_tokens_per_day: tokenCeiling.value })
+		toast.success(
+			tokenCeiling.value > 0
+				? `Ceiling set to ${tokenCeiling.value} tokens per day`
+				: 'Daily ceiling disabled',
+		)
+	} catch (error) {
+		toast.error(error instanceof Error ? error.message : 'Could not save the ceiling')
+	} finally {
+		savingCeiling.value = false
+	}
+}
 
 async function refreshModels() {
 	if (refreshing.value) return
@@ -565,6 +677,10 @@ function openEdit(agent: HiveAgentRow) {
 		can_write: agent.can_write === 1,
 		is_active: agent.is_active === 1,
 		project: agent.project ?? '',
+		is_scheduled: agent.is_scheduled === 1,
+		schedule_interval: agent.schedule_interval || 'Hourly',
+		task_status_filter: agent.task_status_filter || 'To Do',
+		max_runs_per_hour: agent.max_runs_per_hour ?? 10,
 	})
 	editing.value = true
 	agentDialogOpen.value = true
@@ -582,6 +698,10 @@ async function saveAgent() {
 		can_write: (draft.can_write ? 1 : 0) as 0 | 1,
 		is_active: (draft.is_active ? 1 : 0) as 0 | 1,
 		project: draft.project || null,
+		is_scheduled: (draft.is_scheduled ? 1 : 0) as 0 | 1,
+		schedule_interval: draft.schedule_interval,
+		task_status_filter: draft.task_status_filter,
+		max_runs_per_hour: draft.max_runs_per_hour,
 	}
 
 	try {

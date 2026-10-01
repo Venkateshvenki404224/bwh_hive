@@ -13,12 +13,18 @@ loses the work or claims work it never did.
 
 import frappe
 from frappe import _
-from frappe.utils import now_datetime
+from frappe.utils import add_to_date, get_datetime, now_datetime, today
 
 from bwh_hive.bwh_hive import bedrock
 
 MAX_DESCRIPTION_CHARS = 6000
 QUEUE_TIMEOUT = 600
+
+# One task per tick, always. There are 177 To Do tasks on this site today;
+# a batch loop is one bad filter away from a 177-call burst, so throughput
+# comes from tick frequency, which is visible and controllable, rather than
+# from batch size, which is not.
+TASKS_PER_TICK = 1
 
 
 @frappe.whitelist(methods=["POST"])
@@ -175,3 +181,157 @@ def _format_comment(agent, result: dict) -> str:
 		f"<p><small>{result['input_tokens']} in / {result['output_tokens']} out tokens"
 		f" · {result['latency_ms']} ms · stop: {result['stop_reason']}</small></p>"
 	)
+
+
+# -- scheduling -----------------------------------------------------------
+
+
+def run_hourly_agents() -> None:
+	_tick("Hourly")
+
+
+def run_daily_agents() -> None:
+	_tick("Daily")
+
+
+def _tick(interval: str) -> None:
+	"""Give every scheduled agent on this interval at most one task."""
+	agents = frappe.get_all(
+		"Hive Agent",
+		filters={"is_active": 1, "is_scheduled": 1, "schedule_interval": interval},
+		pluck="name",
+	)
+	for name in agents:
+		try:
+			dispatch_for_agent(name)
+		except Exception:
+			# One misconfigured agent must not stop the others.
+			frappe.log_error(title=f"Hive agent schedule tick failed for {name}")
+
+
+def dispatch_for_agent(agent_name: str) -> dict:
+	"""Queue at most TASKS_PER_TICK runs for one agent, respecting the guards.
+
+	A blocked tick writes a Blocked run row with the reason. Silence would make
+	"the cap stopped it" indistinguishable from "nothing was eligible", which
+	are very different things to debug.
+	"""
+	agent = frappe.get_doc("Hive Agent", agent_name)
+
+	blocked = _guard_reason(agent)
+	if blocked:
+		_record_blocked(agent, blocked)
+		return {"queued": [], "blocked": blocked}
+
+	queued = []
+	for task in _eligible_tasks(agent, limit=TASKS_PER_TICK):
+		queued.append(run_agent_on_task(task, agent.name)["run"])
+
+	return {"queued": queued, "blocked": None}
+
+
+def _guard_reason(agent) -> str | None:
+	"""Why this agent must not run right now, or None."""
+	hourly_cap = agent.max_runs_per_hour or 0
+	if hourly_cap > 0:
+		recent = frappe.db.count(
+			"Hive Agent Run",
+			{
+				"agent": agent.name,
+				"status": ("in", ("Queued", "Running", "Done", "Failed")),
+				"creation": (">", add_to_date(now_datetime(), hours=-1)),
+			},
+		)
+		if recent >= hourly_cap:
+			return f"{recent} runs in the last hour reaches the cap of {hourly_cap}"
+
+	spent, ceiling = tokens_used_today()
+	if ceiling > 0 and spent >= ceiling:
+		return f"{spent} tokens used today reaches the daily ceiling of {ceiling}"
+
+	return None
+
+
+def tokens_used_today() -> tuple[int, int]:
+	"""Real tokens consumed today across every agent, and the configured ceiling.
+
+	Summed from run rows rather than tracked in a counter: a counter drifts from
+	reality the first time a run is deleted or a worker dies mid-write.
+	"""
+	spent = (
+		frappe.db.sql(
+			"""select coalesce(sum(total_tokens), 0)
+			from `tabHive Agent Run`
+			where date(creation) = %s""",
+			(today(),),
+		)[0][0]
+		or 0
+	)
+	ceiling = frappe.db.get_single_value("Hive Settings", "max_agent_tokens_per_day") or 0
+	return int(spent), int(ceiling)
+
+
+def _eligible_tasks(agent, limit: int) -> list[str]:
+	"""Tasks this agent should work, newest-updated first.
+
+	A task that already has a Done run is skipped unless it was modified after
+	that run finished. Without that, a scheduled agent re-answers the same
+	ticket every tick and buries it in duplicate comments.
+	"""
+	filters = {
+		"status": agent.task_status_filter or "To Do",
+		"is_archived": 0,
+	}
+	if agent.project:
+		filters["project"] = agent.project
+
+	candidates = frappe.get_all(
+		"Hive Task",
+		filters=filters,
+		fields=["name", "modified"],
+		order_by="modified desc",
+		limit=limit * 20,
+	)
+
+	eligible = []
+	for task in candidates:
+		last_done = frappe.db.get_value(
+			"Hive Agent Run",
+			{"task": task.name, "agent": agent.name, "status": "Done"},
+			"finished_at",
+			order_by="finished_at desc",
+		)
+		if last_done and get_datetime(last_done) >= get_datetime(task.modified):
+			continue
+		if frappe.db.exists(
+			"Hive Agent Run",
+			{"task": task.name, "agent": agent.name, "status": ("in", ("Queued", "Running"))},
+		):
+			continue
+		eligible.append(task.name)
+		if len(eligible) >= limit:
+			break
+
+	return eligible
+
+
+def _record_blocked(agent, reason: str) -> None:
+	"""Leave a visible trace that a guard fired."""
+	task = frappe.db.get_value("Hive Agent Run", {"agent": agent.name}, "task", order_by="creation desc")
+	if not task:
+		# Nothing to attach it to yet; the log is the only honest record.
+		frappe.log_error(title=f"Hive agent {agent.name} blocked", message=reason)
+		return
+
+	frappe.get_doc(
+		{
+			"doctype": "Hive Agent Run",
+			"task": task,
+			"agent": agent.name,
+			"model": agent.model,
+			"status": "Blocked",
+			"error": reason,
+			"finished_at": now_datetime(),
+		}
+	).insert(ignore_permissions=True)
+	frappe.db.commit()
