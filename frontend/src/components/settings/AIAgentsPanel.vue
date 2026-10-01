@@ -147,6 +147,81 @@
 				</p>
 			</section>
 
+			<section v-if="connected" class="space-y-3">
+				<div class="flex items-start justify-between gap-4">
+					<div class="min-w-0">
+						<h3 class="text-base font-semibold text-ink-gray-8">Agents</h3>
+						<p class="text-sm text-ink-gray-5">
+							Each agent is a model plus a brief. Tasks are run by one of these.
+						</p>
+					</div>
+					<Button
+						class="shrink-0"
+						variant="solid"
+						theme="gray"
+						icon-left="lucide-plus"
+						label="New agent"
+						:disabled="!modelList.length"
+						@click="openCreate"
+					/>
+				</div>
+
+				<div v-if="agents.loading && !agents.data" class="space-y-2">
+					<Skeleton v-for="n in 2" :key="n" class="h-14 w-full rounded-4" />
+				</div>
+
+				<ul
+					v-else-if="agents.data?.length"
+					class="divide-y divide-outline-gray-1 rounded-4 border border-outline-gray-1"
+				>
+					<li
+						v-for="agent in agents.data"
+						:key="agent.name"
+						class="flex items-center gap-3 px-3 py-2.5"
+					>
+						<div class="min-w-0 flex-1">
+							<div class="flex items-center gap-2">
+								<p class="truncate text-sm font-medium text-ink-gray-8">
+									{{ agent.agent_name }}
+								</p>
+								<Badge
+									v-if="!agent.is_active"
+									label="Inactive"
+									theme="gray"
+									variant="subtle"
+								/>
+								<Badge
+									v-if="agent.can_write"
+									label="May close tasks"
+									theme="amber"
+									variant="subtle"
+								/>
+							</div>
+							<p class="truncate font-mono text-xs text-ink-gray-5">
+								{{ agent.model }}
+							</p>
+						</div>
+						<Button
+							variant="ghost"
+							icon="lucide-pencil"
+							:aria-label="`Edit ${agent.agent_name}`"
+							@click="openEdit(agent)"
+						/>
+						<Button
+							variant="ghost"
+							icon="lucide-trash-2"
+							theme="red"
+							:aria-label="`Delete ${agent.agent_name}`"
+							@click="removeAgent(agent)"
+						/>
+					</li>
+				</ul>
+
+				<p v-else class="text-sm text-ink-gray-5">
+					No agents yet. Create one to run a task with it.
+				</p>
+			</section>
+
 			<section v-if="status.data?.last_error" class="space-y-2">
 				<h3 class="text-base font-semibold text-ink-gray-8">Last error</h3>
 				<p
@@ -164,6 +239,103 @@
 			</section>
 		</div>
 	</SettingsBody>
+
+	<Dialog
+		v-model:open="agentDialogOpen"
+		:title="editing ? `Edit ${draft.agent_name}` : 'New agent'"
+		size="lg"
+	>
+		<template #default>
+			<div class="flex flex-col gap-4">
+				<FormControl
+					v-model="draft.agent_name"
+					label="Agent name"
+					type="text"
+					placeholder="e.g. Triage"
+					:disabled="editing"
+					:description="editing ? 'The name is the record id and cannot be changed.' : ''"
+				/>
+
+				<FormControl
+					v-model="draft.model"
+					label="Model"
+					type="select"
+					:options="modelSelectOptions"
+					description="Only inference profiles this account can invoke are listed."
+				/>
+
+				<FormControl
+					v-model="draft.system_prompt"
+					label="System prompt"
+					type="textarea"
+					:rows="5"
+					placeholder="Who this agent is and how it should work a task…"
+				/>
+
+				<div class="grid gap-3 sm:grid-cols-2">
+					<FormControl
+						v-model.number="draft.max_tokens"
+						label="Max output tokens"
+						type="number"
+						min="1"
+						max="64000"
+					/>
+					<FormControl
+						v-model.number="draft.temperature"
+						label="Temperature"
+						type="number"
+						min="0"
+						max="1"
+						step="0.1"
+					/>
+				</div>
+
+				<FormControl
+					v-model="draft.project"
+					label="Limit to project"
+					type="select"
+					:options="projectSelectOptions"
+					description="Leave blank to let it work tasks in any project."
+				/>
+
+				<div class="flex flex-col gap-3 rounded-4 border border-outline-gray-1 p-3">
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0">
+							<p class="text-sm font-medium text-ink-gray-8">Active</p>
+							<p class="text-sm text-ink-gray-5">
+								Inactive agents are never scheduled.
+							</p>
+						</div>
+						<Switch v-model="draft.is_active" />
+					</div>
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0">
+							<p class="text-sm font-medium text-ink-gray-8">
+								May change task status
+							</p>
+							<p class="text-sm text-ink-gray-5">
+								Off by default. When off the agent only comments — it cannot close
+								its own work.
+							</p>
+						</div>
+						<Switch v-model="draft.can_write" />
+					</div>
+				</div>
+			</div>
+
+			<div class="flex justify-end gap-2 pt-6">
+				<Button label="Cancel" @click="agentDialogOpen = false" />
+				<Button
+					variant="solid"
+					theme="gray"
+					:label="editing ? 'Save changes' : 'Create agent'"
+					:loading="savingAgent"
+					:disabled="!draft.agent_name.trim() || !draft.model"
+					@click="saveAgent"
+				/>
+			</div>
+		</template>
+	</Dialog>
 </template>
 
 <script setup lang="ts">
@@ -171,14 +343,19 @@ import { computed, reactive, ref, watch } from 'vue'
 import {
 	Badge,
 	Button,
+	Dialog,
 	Dropdown,
 	FormControl,
 	SettingsBody,
 	SettingsHeader,
 	Skeleton,
+	Switch,
 	toast,
 	useCall,
 	useDoc,
+	useDoctype,
+	useList,
+	useNewDoc,
 } from 'frappe-ui'
 import type { DropdownOptions } from 'frappe-ui'
 import { formatDate, fromNow } from '@/lib/dates'
@@ -206,6 +383,19 @@ interface ModelCatalogue {
 	region: string
 	fetched_at: string
 	cached: boolean
+}
+
+interface HiveAgentRow {
+	name: string
+	agent_name: string
+	model: string
+	executor_type: string
+	system_prompt: string | null
+	max_tokens: number
+	temperature: number
+	can_write: 0 | 1
+	is_active: 0 | 1
+	project: string | null
 }
 
 const status = useCall<BedrockStatus>({
@@ -243,6 +433,53 @@ const testing = ref(false)
 const refreshing = ref(false)
 const providerFilter = ref('')
 const scopeFilter = ref('')
+
+const agents = useList<HiveAgentRow>({
+	doctype: 'Hive Agent',
+	fields: [
+		'name',
+		'agent_name',
+		'model',
+		'executor_type',
+		'system_prompt',
+		'max_tokens',
+		'temperature',
+		'can_write',
+		'is_active',
+		'project',
+	],
+	orderBy: 'agent_name asc',
+	limit: 100,
+	cacheKey: 'hive-agents',
+})
+
+const projects = useList<{ name: string; title: string }>({
+	doctype: 'Hive Project',
+	fields: ['name', 'title'],
+	filters: { is_archived: 0 },
+	orderBy: 'title asc',
+	limit: 200,
+	cacheKey: 'hive-agent-projects',
+})
+
+const agentDoctype = useDoctype<HiveAgentRow>('Hive Agent')
+
+const agentDialogOpen = ref(false)
+const editing = ref(false)
+const savingAgent = ref(false)
+
+const BLANK_AGENT = {
+	agent_name: '',
+	model: '',
+	system_prompt: '',
+	max_tokens: 2048,
+	temperature: 0.3,
+	can_write: false,
+	is_active: true,
+	project: '',
+}
+
+const draft = reactive({ ...BLANK_AGENT })
 
 const configured = computed(() => Boolean(status.data?.configured))
 const connected = computed(() => Boolean(status.data?.connected))
@@ -300,6 +537,83 @@ async function refreshModels() {
 	}
 
 	toast.success(`${models.data?.models?.length ?? 0} models available`)
+}
+
+const modelSelectOptions = computed(() => [
+	{ label: 'Select a model…', value: '' },
+	...modelList.value.map((model) => ({ label: `${model.name} — ${model.id}`, value: model.id })),
+])
+
+const projectSelectOptions = computed(() => [
+	{ label: 'Any project', value: '' },
+	...(projects.data ?? []).map((project) => ({ label: project.title, value: project.name })),
+])
+
+function openCreate() {
+	Object.assign(draft, BLANK_AGENT)
+	editing.value = false
+	agentDialogOpen.value = true
+}
+
+function openEdit(agent: HiveAgentRow) {
+	Object.assign(draft, {
+		agent_name: agent.agent_name,
+		model: agent.model,
+		system_prompt: agent.system_prompt ?? '',
+		max_tokens: agent.max_tokens,
+		temperature: agent.temperature,
+		can_write: agent.can_write === 1,
+		is_active: agent.is_active === 1,
+		project: agent.project ?? '',
+	})
+	editing.value = true
+	agentDialogOpen.value = true
+}
+
+async function saveAgent() {
+	if (savingAgent.value) return
+	savingAgent.value = true
+
+	const values = {
+		model: draft.model,
+		system_prompt: draft.system_prompt,
+		max_tokens: draft.max_tokens,
+		temperature: draft.temperature,
+		can_write: (draft.can_write ? 1 : 0) as 0 | 1,
+		is_active: (draft.is_active ? 1 : 0) as 0 | 1,
+		project: draft.project || null,
+	}
+
+	try {
+		if (editing.value) {
+			await agentDoctype.setValue.submit({ name: draft.agent_name, ...values })
+		} else {
+			await useNewDoc<HiveAgentRow>('Hive Agent', {
+				agent_name: draft.agent_name.trim(),
+				executor_type: 'Bedrock Direct',
+				...values,
+			}).submit()
+		}
+		agentDialogOpen.value = false
+		agents.reload()
+		toast.success(editing.value ? 'Agent updated' : `Created "${draft.agent_name}"`)
+	} catch (error) {
+		// The server rejects a bare model id and out-of-range limits; surface
+		// that message rather than a generic failure.
+		toast.error(error instanceof Error ? error.message : 'Could not save the agent')
+	} finally {
+		savingAgent.value = false
+	}
+}
+
+async function removeAgent(agent: HiveAgentRow) {
+	try {
+		await agentDoctype.delete.submit({ name: agent.name })
+		agents.reload()
+		toast.success(`Deleted "${agent.agent_name}"`)
+	} catch (error) {
+		toast.error(error instanceof Error ? error.message : 'Could not delete the agent')
+	}
 }
 
 // A first-time save needs both halves; once stored, either can be updated alone.
