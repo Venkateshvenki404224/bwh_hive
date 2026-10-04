@@ -1,0 +1,196 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "field:agent_name",
+ "creation": "2026-10-01 18:23:47.276516",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "agent_name",
+  "is_active",
+  "executor_type",
+  "model",
+  "config_section",
+  "system_prompt",
+  "max_tokens",
+  "temperature",
+  "permissions_section",
+  "can_write",
+  "project",
+  "schedule_section",
+  "is_scheduled",
+  "schedule_interval",
+  "task_status_filter",
+  "guards_section",
+  "max_runs_per_hour"
+ ],
+ "fields": [
+  {
+   "fieldname": "agent_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Agent Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Active"
+  },
+  {
+   "default": "Bedrock Direct",
+   "description": "Bedrock Direct reasons and reports. A shell-capable executor is a separate, later decision.",
+   "fieldname": "executor_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Executor",
+   "options": "Bedrock Direct",
+   "reqd": 1
+  },
+  {
+   "description": "A Bedrock inference profile id, e.g. us.anthropic.claude-sonnet-5. Pick from Settings > AI Agents.",
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Model",
+   "reqd": 1
+  },
+  {
+   "fieldname": "config_section",
+   "fieldtype": "Section Break",
+   "label": "Behaviour"
+  },
+  {
+   "description": "Who this agent is and how it should work a task.",
+   "fieldname": "system_prompt",
+   "fieldtype": "Small Text",
+   "label": "System Prompt"
+  },
+  {
+   "default": "2048",
+   "fieldname": "max_tokens",
+   "fieldtype": "Int",
+   "label": "Max Output Tokens"
+  },
+  {
+   "default": "0.3",
+   "fieldname": "temperature",
+   "fieldtype": "Float",
+   "label": "Temperature",
+   "precision": "2"
+  },
+  {
+   "fieldname": "permissions_section",
+   "fieldtype": "Section Break",
+   "label": "Permissions"
+  },
+  {
+   "default": "0",
+   "description": "Off by default. When off the agent only comments; it cannot close its own work.",
+   "fieldname": "can_write",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "May change task status"
+  },
+  {
+   "description": "Leave blank to let this agent work tasks in any project.",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Limit to Project",
+   "options": "Hive Project"
+  },
+  {
+   "fieldname": "schedule_section",
+   "fieldtype": "Section Break",
+   "label": "Schedule"
+  },
+  {
+   "default": "0",
+   "description": "Off by default. On, this agent picks up one eligible task per tick.",
+   "fieldname": "is_scheduled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Run on a schedule"
+  },
+  {
+   "default": "Hourly",
+   "depends_on": "is_scheduled",
+   "description": "Throughput comes from frequency, not batch size: one task per tick, always.",
+   "fieldname": "schedule_interval",
+   "fieldtype": "Select",
+   "label": "How often",
+   "options": "Hourly\nDaily"
+  },
+  {
+   "default": "To Do",
+   "depends_on": "is_scheduled",
+   "fieldname": "task_status_filter",
+   "fieldtype": "Select",
+   "label": "Pick up tasks with status",
+   "options": "To Do\nIn Progress"
+  },
+  {
+   "fieldname": "guards_section",
+   "fieldtype": "Section Break",
+   "label": "Spend guards"
+  },
+  {
+   "default": "10",
+   "description": "Counted from real run rows. A runaway loop is the realistic failure mode here.",
+   "fieldname": "max_runs_per_hour",
+   "fieldtype": "Int",
+   "label": "Max Runs Per Hour"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-01 18:23:47.276516",
+ "modified_by": "Administrator",
+ "module": "BWH Hive",
+ "name": "Hive Agent",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Hive Team",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "agent_name",
+ "track_changes": 1
+}

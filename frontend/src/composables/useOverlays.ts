@@ -7,6 +7,7 @@ export const SETTINGS_TABS = [
 	'general',
 	'members',
 	'clients',
+	'ai-agents',
 	'github',
 ] as const
 

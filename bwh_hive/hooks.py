@@ -153,11 +153,13 @@ doc_events = {
 scheduler_events = {
 	"daily": [
 		"bwh_hive.tasks.daily",
+		"bwh_hive.bwh_hive.agent_runner.run_daily_agents",
 	],
 	"hourly": [
 		# The issue webhook only fires on `issues.opened`, so anything raised
 		# while the site was unreachable needs a catch-up.
 		"bwh_hive.bwh_hive.github.pull_all_issues",
+		"bwh_hive.bwh_hive.agent_runner.run_hourly_agents",
 	],
 }
 

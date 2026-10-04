@@ -35,6 +35,7 @@ import {
 	SettingsSidebar,
 } from 'frappe-ui'
 import AppearancePanel from '@/components/settings/AppearancePanel.vue'
+import AIAgentsPanel from '@/components/settings/AIAgentsPanel.vue'
 import ClientsPanel from '@/components/settings/ClientsPanel.vue'
 import GeneralPanel from '@/components/settings/GeneralPanel.vue'
 import GitHubPanel from '@/components/settings/GitHubPanel.vue'
@@ -86,6 +87,13 @@ const PANELS: PanelDef[] = [
 		label: 'Clients',
 		icon: 'lucide-building-2',
 		component: markRaw(ClientsPanel),
+		teamOnly: true,
+	},
+	{
+		value: 'ai-agents',
+		label: 'AI Agents',
+		icon: 'lucide-bot',
+		component: markRaw(AIAgentsPanel),
 		teamOnly: true,
 	},
 	{
